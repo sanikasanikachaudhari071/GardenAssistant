@@ -1,3 +1,121 @@
+// Define these functions in the global scope
+function deleteTask(taskId) {
+    const API_BASE_URL = 'http://localhost:8000';
+    try {
+        console.log('Deleting task:', taskId);
+        fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            console.log('Delete response status:', response.status);
+            
+            if (!response.ok) {
+                return response.json().then(errorData => {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                });
+            }
+            
+            return response.json();
+        })
+        .then(result => {
+            console.log('Delete result:', result);
+            loadTasks(); // Reload tasks after successful deletion
+        })
+        .catch(error => {
+            console.error('Error deleting task:', error);
+            alert('Failed to delete task. Please try again.');
+        });
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        alert('Failed to delete task. Please try again.');
+    }
+}
+
+function updateTask(taskId, completed) {
+    const API_BASE_URL = 'http://localhost:8000';
+    try {
+        console.log('Updating task:', taskId, 'completed:', completed);
+        fetch(`${API_BASE_URL}/api/tasks/${taskId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                completed: completed
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(errorData => {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                });
+            }
+            
+            return response.json();
+        })
+        .then(result => {
+            console.log('Update result:', result);
+            loadTasks(); // Reload tasks after successful update
+        })
+        .catch(error => {
+            console.error('Error updating task:', error);
+            alert('Failed to update task. Please try again.');
+        });
+    } catch (error) {
+        console.error('Error updating task:', error);
+        alert('Failed to update task. Please try again.');
+    }
+}
+
+function loadTasks() {
+    const API_BASE_URL = 'http://localhost:8000';
+    try {
+        console.log('Loading tasks...');
+        fetch(`${API_BASE_URL}/api/tasks`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(tasks => {
+            console.log('Loaded tasks:', tasks);
+            displayTasks(tasks);
+        })
+        .catch(error => {
+            console.error('Error loading tasks:', error);
+        });
+    } catch (error) {
+        console.error('Error loading tasks:', error);
+    }
+}
+
+function displayTasks(tasks) {
+    const taskList = document.getElementById('taskList');
+    taskList.innerHTML = '';
+
+    tasks.forEach(task => {
+        const taskItem = document.createElement('div');
+        taskItem.className = 'task-item';
+        taskItem.innerHTML = `
+            <div class="task-check">
+                <input type="checkbox" 
+                       id="task${task.id}" 
+                       ${task.completed ? 'checked' : ''}>
+                <label for="task${task.id}">${task.title}</label>
+            </div>
+            <button class="delete-btn">
+                <i class="fas fa-trash"></i>
+            </button>
+        `;
+        taskList.appendChild(taskItem);
+    });
+}
+
+// Main initialization
 document.addEventListener('DOMContentLoaded', function() {
     // Mobile Menu Toggle
     const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
@@ -43,56 +161,34 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         
         const taskName = document.getElementById('taskName').value;
-        if (taskName.trim() === '') return;
+        if (taskName.trim() === '') {
+            console.error('Task name cannot be empty');
+            return;
+        }
         
-        // Create new task item
-        const taskId = 'task-' + Date.now();
-        const taskItem = document.createElement('div');
-        taskItem.className = 'task-item';
-        taskItem.innerHTML = `
-            <div class="task-check">
-                <input type="checkbox" id="${taskId}">
-                <label for="${taskId}">${taskName}</label>
-            </div>
-            <button class="delete-btn"><i class="fas fa-trash"></i></button>
-        `;
-        
-        // Add to task list
-        taskList.appendChild(taskItem);
+        console.log('Submitting new task:', taskName);
+        addTask(taskName);
         
         // Reset form and close modal
         newTaskForm.reset();
         taskModal.style.display = 'none';
-        
-        // Add event listener to new delete button
-        addDeleteListeners();
     });
 
-    // Delete task
-    function addDeleteListeners() {
-        const deleteButtons = document.querySelectorAll('.delete-btn');
-        deleteButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const taskItem = this.parentElement;
-                taskItem.remove();
-            });
-        });
-    }
-
-    // Initialize delete listeners for existing tasks
-    addDeleteListeners();
-
-    // Task completion
+    // Task completion using event delegation
     taskList.addEventListener('change', function(e) {
         if (e.target.type === 'checkbox') {
-            const label = e.target.nextElementSibling;
-            if (e.target.checked) {
-                label.style.textDecoration = 'line-through';
-                label.style.color = '#9ca3af';
-            } else {
-                label.style.textDecoration = 'none';
-                label.style.color = 'var(--text-color)';
-            }
+            const taskId = e.target.id.replace('task', '');
+            const completed = e.target.checked;
+            updateTask(taskId, completed);
+        }
+    });
+    
+    // Delete task using event delegation
+    taskList.addEventListener('click', function(e) {
+        if (e.target.closest('.delete-btn')) {
+            const taskItem = e.target.closest('.task-item');
+            const taskId = taskItem.querySelector('input[type="checkbox"]').id.replace('task', '');
+            deleteTask(taskId);
         }
     });
 
@@ -105,4 +201,40 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     window.addEventListener('resize', handleResize);
+
+    // Add task function
+    async function addTask(title) {
+        const API_BASE_URL = 'http://localhost:8000';
+        try {
+            console.log('Adding task:', { title });
+            const response = await fetch(`${API_BASE_URL}/api/tasks`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    title: title,
+                    completed: false
+                })
+            });
+
+            console.log('Response status:', response.status);
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Error response:', errorData);
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const newTask = await response.json();
+            console.log('Successfully added task:', newTask);
+            loadTasks(); // Reload tasks after adding
+        } catch (error) {
+            console.error('Error adding task:', error);
+            alert('Failed to add task. Please try again.');
+        }
+    }
+
+    // Initialize tasks when the page loads
+    loadTasks();
 });
