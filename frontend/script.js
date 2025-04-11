@@ -1,4 +1,3 @@
-// Define these functions in the global scope
 function deleteTask(taskId) {
     const API_BASE_URL = 'http://localhost:8000';
     try {

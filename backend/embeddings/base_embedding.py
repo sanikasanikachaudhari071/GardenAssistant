@@ -1,87 +1,67 @@
+from typing import List, Type
+from pydantic import BaseModel
 from abc import ABC, abstractmethod
-from typing import List, Union
 import numpy as np
-from PIL import Image
-import torch
-from transformers import CLIPProcessor, CLIPModel
+
+
+class EmbeddingInput(BaseModel):
+    model_name: str
+    dimensions: int
+    embedding_type: str
+
 
 class BaseEmbedding(ABC):
-    def __init__(self):
-        # Load CLIP model
-        self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+    def __init__(self, embedding_input: Type[EmbeddingInput]) -> None:
+        self._input: EmbeddingInput = embedding_input
 
-    def generate_embedding(self, input_data: Union[str, Image.Image]) -> List[float]:
+    def generate_embedding(self, text: str) -> List[float]:
         """
-        Generate embedding for a single text or image.
+        Generate embedding for a single text.
 
         Args:
-            input_data (Union[str, Image.Image]): Text or Image.
+            text (str): The text to generate embedding for.
 
         Returns:
-            List[float]: Embedding vector.
+            List[float]: The embedding for the text.
         """
-        embeddings: List[List[float]] = self._call_embedding_model([input_data])
+        embeddings: List[List[float]] = self._call_embedding_model([text])
         return embeddings[0]
 
-    def generate_batch_embeddings(self, inputs: List[Union[str, Image.Image]]) -> List[List[float]]:
+    def generate_batch_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
-        Generate embeddings for a batch of texts or images.
+        Generate embeddings for a list of texts.
 
         Args:
-            inputs (List[Union[str, Image.Image]]): List of text or images.
+            texts (List[str]): The list of texts to generate embeddings for.
 
         Returns:
-            List[List[float]]: Embeddings for all inputs.
+            List[List[float]]: The embeddings for the list of texts.
         """
-        return self._call_embedding_model(inputs)
+        embeddings: List[List[float]] = self._call_embedding_model(texts)
+        return embeddings
 
     @abstractmethod
-    def _call_embedding_model(self, inputs: List[Union[str, Image.Image]]) -> List[List[float]]:
+    def _call_embedding_model(self, texts: List[str]) -> List[List[float]]:
         pass
 
-    def calculate_cosine_similarity(self, embedding1: List[float], embedding2: List[float]) -> float:
+    def calculate_cosine_similarity(
+        self, embedding1: List[float], embedding2: List[float]
+    ) -> float:
         """
         Calculate cosine similarity between two embeddings.
 
         Args:
-            embedding1 (List[float]): First embedding vector.
-            embedding2 (List[float]): Second embedding vector.
+            embedding1 (List[float]): First embedding vector
+            embedding2 (List[float]): Second embedding vector
 
         Returns:
-            float: Cosine similarity score (-1 to 1).
+            float: Cosine similarity score between -1 and 1, where 1 means most similar
         """
-        vec1, vec2 = np.array(embedding1), np.array(embedding2)
+        # Convert lists to numpy arrays for efficient computation
+        vec1 = np.array(embedding1)
+        vec2 = np.array(embedding2)
+
+        # Calculate cosine similarity: dot product divided by the product of norms
         similarity = np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+
         return float(similarity)
-
-
-class CLIPEmbedding(BaseEmbedding):
-    def _call_embedding_model(self, inputs: List[Union[str, Image.Image]]) -> List[List[float]]:
-        """
-        Calls the CLIP model for generating embeddings.
-
-        Args:
-            inputs (List[Union[str, Image.Image]]): List of text or images.
-
-        Returns:
-            List[List[float]]: Embeddings for each input.
-        """
-        # Check if input is text or image
-        is_text = isinstance(inputs[0], str)
-        is_image = isinstance(inputs[0], Image.Image)
-
-        # Process input
-        inputs_processed = self.processor(
-            text=inputs if is_text else None,
-            images=inputs if is_image else None,
-            return_tensors="pt",
-            padding=True
-        )
-
-        # Generate embeddings
-        with torch.no_grad():
-            outputs = self.model.get_text_features(**inputs_processed) if is_text else \
-                      self.model.get_image_features(**inputs_processed)
-
-        return outputs.cpu().numpy().tolist()

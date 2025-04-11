@@ -5,8 +5,10 @@ import os
 
 class groqinference:
     def __init__(self, model: str = "llama-3.2-11b-vision-preview"):
-        os.environ["groq_api_key"] = os.getenv("groq_api_key")
-        self.groq_client = Groq()
+        api_key = os.getenv("groq_api_key")
+        if not api_key:
+            raise ValueError("GROQ_API_KEY environment variable is not set")
+        self.groq_client = Groq(api_key=api_key)
         self.model = model
     
     def generate_responce(self, messages: List[Dict], temperature=1, max_completion_tokens=1024):
@@ -30,4 +32,4 @@ class groqinference:
             return completion.choices[0].message.content
         except Exception as e:
             print("Error generating response:", e)  # Debugging line
-            return "Error generating response."
+            raise Exception(f"Failed to generate response from Groq: {str(e)}")

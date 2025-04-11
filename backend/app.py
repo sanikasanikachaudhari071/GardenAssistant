@@ -1,42 +1,22 @@
-# from backend.conversation.chat import chat_with_assistant
-# from backend.memory.adddata import add_pdf_to_chroma
-
-# if __name__ == "__main__":
-#     # add_pdf_to_chroma(pdf_path=r"C:\Users\SANIKA CHAUDHARI\OneDrive\Desktop\Philodendron - Wikipedia.pdf")
-
-#     user_id = input("Enter your user ID (or type 'exit' to quit): ")
-#     while True:
-#         # user_id = input("Enter your user ID (or type 'exit' to quit): ")
-#         # if user_id.lower() == 'exit':
-#         #     break  # Exit the loop if the user types 'exit'
-        
-#         user_query = input("Enter your query (or leave blank if not applicable): ")
-        
-#         # Ask if the user wants to add an image
-#         add_image = input("Do you want to add an image? (yes/no): ").strip().lower()
-#         image_url = ""
-        
-#         if add_image == 'yes':
-#             image_url = input("Enter the image URL (e.g., http://127.0.0.1:5000/images/download.jpg): ")
-        
-#         # Call the chat_with_assistant function
-#         assistant_response, messages = chat_with_assistant(user_id, user_query, image_url, [])
-        
-#         # Print the assistant's response
-#         print("Assistant's response:", assistant_response)   
-
-from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, Depends
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException, Request, UploadFile, File, Form, Depends, Header
 from pydantic import BaseModel, Field
 from backend.conversation.chat import chat_with_assistant
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from backend.login.task import router as task_router
 from backend.login.database import Base, engine, get_db
+from sqlalchemy.orm import Session
+from backend.login.database import Task
 import logging
 import os
 import tempfile
 from pathlib import Path
+import httpx
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -50,33 +30,27 @@ app = FastAPI()
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=["*"],  # In production, replace with your frontend URL
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Include task router
+# Include task router without prefix (since it's already in the router)
 app.include_router(task_router)
 
 class ChatRequest(BaseModel):
     user_id: str = Field(..., description="User ID is required")
     query: str = Field(..., description="Query text is required")
 
+class TaskUpdate(BaseModel):
+    completed: bool
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     body = await request.body()
     logger.info(f"Received request: {request.method} {request.url}")
-    
-    # Only try to decode if it's not a multipart/form-data request
-    if not request.headers.get("content-type", "").startswith("multipart/form-data"):
-        try:
-            logger.info(f"Request body: {body.decode()}")
-        except UnicodeDecodeError:
-            logger.info("Request body: [binary data]")
-    else:
-        logger.info("Request body: [multipart/form-data]")
-    
+    logger.info(f"Request body: {body.decode()}")
     response = await call_next(request)
     return response
 
@@ -93,6 +67,21 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={"detail": error_message}
     )
+
+@app.put("/api/tasks/{task_id}")
+async def update_task(task_id: int, task: TaskUpdate, db: Session = Depends(get_db)):
+    try:
+        db_task = db.query(Task).filter(Task.id == task_id).first()
+        if not db_task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        db_task.completed = task.completed
+        db.commit()
+        db.refresh(db_task)
+        return db_task
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat")
 async def chat(request: ChatRequest):
@@ -173,7 +162,4 @@ async def chat_with_image(
         error_message = str(e)
         logger.error(f"Error processing chat request with image: {error_message}")
         raise HTTPException(status_code=500, detail=str(e))
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garden Assistant Chatbot</title>
+    <link rel="stylesheet" href="chatstyle.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-leaf"></i>
+                <h2>Garden Assistant</h2>
+            </div>
+            
+            <div class="sidebar-content">
+                <a href="index.html"><button>Home Page</button></a>
+
+                <h3>About Garden Assistant</h3>
+                <p>Your AI companion for all things gardening. Ask questions about plants, upload images for identification, and get personalized care tips.</p>
+                
+                <h3>Features</h3>
+                <ul>
+                    <li>Plant identification from images</li>
+                    <li>Care guides for tomatoes , philodentron</li>
+                </ul>
+                
+                <h3>Sample Questions</h3>
+                <ul class="sample-questions">
+                    <li><button class="sample-question">How do I care for tomatoes?</button></li>
+                </ul>
+                
+                <div class="sidebar-footer">
+                    <p>Upload a plant image for identification</p>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main Chat Area -->
+        <main class="chat-area">
+            <!-- Header -->
+            <header class="chat-header">
+                <div class="menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </div>
+                <div class="header-title">
+                    <i class="fas fa-leaf"></i>
+                    <h1>Garden Assistant</h1>
+                </div>
+                <div class="header-actions">
+                    <button class="clear-chat">
+                        <i class="fas fa-trash"></i>
+                        <span>Clear Chat</span>
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Chat Messages -->
+            <div class="chat-messages" id="chatMessages">
+                <!-- Welcome message -->
+                <div class="message bot-message">
+                    <div class="message-content">
+                        <p>Hello! I'm your Garden Assistant. How can I help with your garden today? You can ask me questions or upload a plant image for identification.</p>
+                    </div>
+                </div>
+                
+                <!-- Messages will be added here dynamically -->
+            </div>
+            
+            <!-- Input Area -->
+            <div class="input-area">
+                <div class="image-preview-container" id="imagePreviewContainer">
+                    <div class="image-preview" id="imagePreview"></div>
+                    <button class="remove-image" id="removeImage">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="input-container">
+                    <label for="imageUpload" class="upload-btn">
+                        <i class="fas fa-image"></i>
+                    </label>
+                    <input type="file" id="imageUpload" accept="image/*" hidden>
+                    
+                    <input type="text" id="userInput" placeholder="Type your garden question here...">
+                    
+                    <button id="sendButton">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="chatjs.js"></script>
+</body>
+</html>

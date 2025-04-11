@@ -1,40 +1,70 @@
 import requests
+import os
+from dotenv import load_dotenv
+from typing import List
+from backend.embeddings.base_embedding import BaseEmbedding, EmbeddingInput
+
+load_dotenv()
 
 
-url = 'https://api.jina.ai/v1/embeddings'
-headers = {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer jina_d63d653377bf4c709888bfac7d996822C5dRl59LXNB2b1CqN6BhZmovFzh6'
-}
-data = {
-    "model": "jina-clip-v2",
-    "dimensions": 1024,
-    "normalized": True,
-    "embedding_type": "float",
-    "input": [
-        {
-            "text": "A beautiful sunset over the beach"
-        },
-        {
-            "text": "Un beau coucher de soleil sur la plage"
-        },
-        {
-            "text": "海滩上美丽的日落"
-        },
-        {
-            "text": "浜辺に沈む美しい夕日"
-        },
-        {
-            "image": "https://i.ibb.co/nQNGqL0/beach1.jpg"
-        },
-        {
-            "image": "https://i.ibb.co/r5w8hG8/beach2.jpg"
-        },
-        {
-            "image": "R0lGODlhEAAQAMQAAORHHOVSKudfOulrSOp3WOyDZu6QdvCchPGolfO0o/XBs/fNwfjZ0frl3/zy7////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAkAABAALAAAAAAQABAAAAVVICSOZGlCQAosJ6mu7fiyZeKqNKToQGDsM8hBADgUXoGAiqhSvp5QAnQKGIgUhwFUYLCVDFCrKUE1lBavAViFIDlTImbKC5Gm2hB0SlBCBMQiB0UjIQA7"
+class JinaEmbeddingInput(EmbeddingInput):
+    task: str = "text-matching"
+    late_chunking: bool = False
+    URL: str = "https://api.jina.ai/v1/embeddings"
+    headers: dict[str, str] = {
+        "Content-Type": "application/json",
+        "Authorization": f'Bearer {os.getenv("JINA_API")}',
+    }
+
+
+class JinaEmbedding(BaseEmbedding):
+    def __init__(self, embedding_input: JinaEmbeddingInput) -> None:
+        super().__init__(embedding_input)
+
+    def _call_embedding_model(self, texts: List[str]) -> List[List[float]]:
+        data = {
+            "model": self._input.model_name,
+            "task": self._input.task,
+            "late_chunking": self._input.late_chunking,
+            "dimensions": self._input.dimensions,
+            "embedding_type": self._input.embedding_type,
+            "input": texts,
         }
-    ]
-}
+        response = requests.post(
+            self._input.URL, headers=self._input.headers, json=data
+        )
+        
+        if response.status_code != 200:
+            print(f"Error response from Jina API: {response.status_code}")
+            print(f"Response content: {response.text}")
+            raise Exception(f"Jina API request failed with status code {response.status_code}")
+            
+        response_json = response.json()
+        print(f"Jina API response: {response_json}")  # Debug print
+        return self._parse_jina_response(response_json)
 
-response = requests.post(url, headers=headers, json=data)
-print(response.text)
+    def _parse_jina_response(self, response: dict) -> List[List[float]]:
+        result = []
+        for embedding in response["data"]:
+            result.append(embedding["embedding"])
+        return result
+
+
+if __name__ == "__main__":
+    input = JinaEmbeddingInput(
+        model_name="jina-embeddings-v3",
+        task="text-matching",
+        late_chunking=False,
+        dimensions=1024,
+        embedding_type="float",
+    )
+    embedding = JinaEmbedding(input)
+    embedding_outputs: List[List[float]] = embedding.generate_batch_embeddings(
+        ["Hello, how are you?", "I am arkajit datta"]
+    )
+
+    # Calculate cosine similarity between the two embeddings
+    similarity: float = embedding.calculate_cosine_similarity(
+        embedding_outputs[0], embedding_outputs[1]
+    )
+    print(f"Cosine similarity: {similarity}")
