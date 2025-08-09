@@ -3,3 +3,5 @@ Download requirements form requirements folder
 
 now run : python main.py
 open in bowser : index.html
+
+For TODO : you would need to make a Table in mysql and connect it 
